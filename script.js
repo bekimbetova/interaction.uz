@@ -104,11 +104,18 @@ const translations = {
 };
 
 const toggle = document.querySelector('.nav-toggle');
-const navLinks = document.querySelector('.nav-links');
+const navLinks = document.getElementById('primary-menu');
 const langButtons = document.querySelectorAll('.lang-btn');
 const elements = document.querySelectorAll('[data-i18n]');
 const placeholderElements = document.querySelectorAll('[data-i18n-placeholder]');
 const form = document.getElementById('lead-form');
+
+// Modal elements
+const modalOverlay = document.getElementById('modal-overlay');
+const modalContent = document.getElementById('modal-content');
+
+// Testimonial state
+let testimonialIndex = 0;
 
 function applyLanguage(lang) {
   const content = translations[lang] || translations.ru;
@@ -165,3 +172,174 @@ if (form) {
 
 const savedLang = localStorage.getItem('interaction-lang');
 applyLanguage(savedLang === 'en' ? 'en' : 'ru');
+
+// --- Modal handling ---
+function openModal(templateId) {
+  if (!modalOverlay || !modalContent) return;
+  const tpl = document.getElementById(templateId);
+  if (!tpl) return;
+  modalContent.innerHTML = '';
+  modalContent.appendChild(tpl.content.cloneNode(true));
+  modalOverlay.setAttribute('aria-hidden', 'false');
+  modalOverlay.classList.add('open');
+  const firstInput = modalContent.querySelector('input, button, textarea, select');
+  if (firstInput) firstInput.focus();
+}
+
+function closeModal() {
+  if (!modalOverlay || !modalContent) return;
+  modalOverlay.setAttribute('aria-hidden', 'true');
+  modalOverlay.classList.remove('open');
+  modalContent.innerHTML = '';
+}
+
+document.querySelectorAll('[data-action="open-modal"]').forEach((btn) => {
+  btn.addEventListener('click', (e) => {
+    const target = btn.dataset.target;
+    if (target) openModal(target);
+  });
+});
+
+if (modalOverlay) {
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeModal();
+  });
+  const closeBtn = modalOverlay.querySelector('.modal-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+}
+
+// --- IELTS calculator ---
+function calculateIELTS() {
+  const scoreL = parseFloat(document.getElementById('scoreL')?.value || 0);
+  const scoreR = parseFloat(document.getElementById('scoreR')?.value || 0);
+  const scoreW = parseFloat(document.getElementById('scoreW')?.value || 0);
+  const scoreS = parseFloat(document.getElementById('scoreS')?.value || 0);
+  const target = parseFloat(document.getElementById('scoreTarget')?.value || 6.5);
+
+  const valL = document.getElementById('valL');
+  const valR = document.getElementById('valR');
+  const valW = document.getElementById('valW');
+  const valS = document.getElementById('valS');
+  const valTarget = document.getElementById('valTarget');
+  const resOverallEl = document.getElementById('resOverall');
+  const resMonthsEl = document.getElementById('resMonths');
+  const resAdvice = document.getElementById('resAdvice');
+
+  if (valL) valL.textContent = scoreL.toFixed(1);
+  if (valR) valR.textContent = scoreR.toFixed(1);
+  if (valW) valW.textContent = scoreW.toFixed(1);
+  if (valS) valS.textContent = scoreS.toFixed(1);
+  if (valTarget) valTarget.textContent = target.toFixed(1);
+
+  const overall = Math.round(((scoreL + scoreR + scoreW + scoreS) / 4) * 10) / 10;
+  if (resOverallEl) resOverallEl.textContent = overall.toFixed(1);
+
+  const intensityInput = document.querySelector('input[name="intensity"]:checked');
+  const intensity = intensityInput ? parseFloat(intensityInput.value) : 1;
+
+  // Simple heuristic: higher intensity reduces required months
+  const gap = Math.max(0, target - overall);
+  const months = gap <= 0 ? 0 : Math.max(1, Math.ceil((gap / (0.25 * intensity))));
+  if (resMonthsEl) resMonthsEl.textContent = months === 0 ? 'Ваш уровень уже соответствует цели' : `${months} мес.`;
+
+  if (resAdvice) {
+    if (months === 0) resAdvice.textContent = 'Вы уже достигли или превышаете целевой балл — поддерживайте результаты.';
+    else if (months <= 2) resAdvice.textContent = 'Интенсивная подготовка рекомендована — комбинируйте уроки и самостоятельную работу.';
+    else if (months <= 5) resAdvice.textContent = 'Регулярная подготовка с фокусом на Writing и Speaking.';
+    else resAdvice.textContent = 'Рассмотрите долгосрочную программу с постепенным повышением практики.';
+  }
+}
+
+window.calculateIELTS = calculateIELTS;
+// initialize
+calculateIELTS();
+
+// --- Quiz form handler ---
+const quizForm = document.getElementById('quiz-form');
+const quizPlan = document.getElementById('quiz-plan');
+const quizAdvice = document.getElementById('quiz-advice');
+const quizSteps = Array.from(document.querySelectorAll('.quiz-step'));
+let activeQuizStep = 0;
+
+function showQuizStep(index) {
+  quizSteps.forEach((step, idx) => {
+    step.classList.toggle('active', idx === index);
+  });
+  activeQuizStep = Math.max(0, Math.min(index, quizSteps.length - 1));
+}
+
+function advanceQuizStep(delta) {
+  showQuizStep(activeQuizStep + delta);
+}
+
+if (quizForm) {
+  quizForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(quizForm);
+    const level = fd.get('level');
+    const target = parseFloat(fd.get('target') || '6.5');
+    const timeline = parseInt(fd.get('timeline') || '6', 10);
+    const studyDays = parseInt(fd.get('studyDays') || '3', 10);
+
+    let recommendation = 'Regular';
+    if (timeline <= 2 || (target >= 7 && studyDays >= 5)) recommendation = 'Intensive Pro';
+    else if (timeline <= 4 || (target >= 6.5 && studyDays >= 4)) recommendation = 'Intensive';
+
+    if (quizPlan) quizPlan.textContent = recommendation;
+    if (quizAdvice) quizAdvice.textContent = `Рекомендация: ${recommendation}. Учтите ваш уровень (${level || 'не указан'}) и сроки (${timeline} мес.).`;
+  });
+}
+
+function bindQuizControls() {
+  document.querySelectorAll('.quiz-next').forEach((btn) => {
+    btn.addEventListener('click', () => advanceQuizStep(1));
+  });
+  document.querySelectorAll('.quiz-prev').forEach((btn) => {
+    btn.addEventListener('click', () => advanceQuizStep(-1));
+  });
+}
+
+if (quizSteps.length) {
+  showQuizStep(0);
+  bindQuizControls();
+}
+
+// --- Testimonials ---
+const testimonialCards = Array.from(document.querySelectorAll('.testimonial-card'));
+function showTestimonial(i) {
+  if (!testimonialCards.length) return;
+  testimonialIndex = (i + testimonialCards.length) % testimonialCards.length;
+  testimonialCards.forEach((c, idx) => c.classList.toggle('active', idx === testimonialIndex));
+}
+
+document.querySelectorAll('[data-action="testimonial-prev"]').forEach((btn) => btn.addEventListener('click', () => showTestimonial(testimonialIndex - 1)));
+document.querySelectorAll('[data-action="testimonial-next"]').forEach((btn) => btn.addEventListener('click', () => showTestimonial(testimonialIndex + 1)));
+// init testimonial index from existing active card if any
+const initialActive = testimonialCards.findIndex((c) => c.classList.contains('active'));
+if (initialActive >= 0) testimonialIndex = initialActive;
+showTestimonial(testimonialIndex);
+
+// --- Expandable panels ---
+document.querySelectorAll('.expand-toggle').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const panel = btn.closest('.expand-panel');
+    if (!panel) return;
+    panel.classList.toggle('open');
+    const content = panel.querySelector('.expand-content');
+    if (content) content.style.display = content.style.display === 'block' ? 'none' : 'block';
+  });
+});
+
+// --- FAQ toggles ---
+document.querySelectorAll('.faq-toggle').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const card = btn.closest('.faq-card');
+    const answer = card?.querySelector('.faq-answer');
+    if (!card || !answer) return;
+    const isOpen = card.classList.toggle('active');
+    answer.style.display = isOpen ? 'block' : 'none';
+  });
+});
+
+// Initialize: hide all FAQ answers on load
+document.querySelectorAll('.faq-answer').forEach((ans) => { ans.style.display = 'none'; });
