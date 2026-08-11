@@ -7,7 +7,7 @@ const translations = {
     'nav.contact': 'Контакты',
     'hero.eyebrow': 'Учебный центр для уверенного будущего',
     'hero.title': 'Помогаем раскрывать потенциал через английский и международное образование',
-    'hero.description': 'Подготовка к IELTS/TOEFL, курсы английского, консультации по поступлению и грантам — в современном формате и с индивидуальным подходом.',
+    'hero.description': 'Подготовка к IELTS/TOEFL, курсы английского, консультации по поступлению и грантам — в современно�[...]',
     'hero.primaryCta': 'Записаться на консультацию',
     'hero.secondaryCta': 'Посмотреть программы',
     'hero.cardTitle': 'Почему выбирают нас',
@@ -16,7 +16,7 @@ const translations = {
     'hero.cardItem3': 'Поддержка на каждом этапе — от подготовки до поступления',
     'about.eyebrow': 'О центре',
     'about.title': 'InterAction — место, где знания становятся вашим следующим шагом',
-    'about.text': 'Мы объединяем обучение английскому языку и сопровождение в поступлении в международные университеты. Наша задача — дать студентам не только знания, но и уверенность для реальных достижений.',
+    'about.text': 'Мы объединяем обучение английскому языку и сопровождение в поступлении в международные универс[...]',
     'about.boxTitle': 'Что мы предлагаем',
     'about.boxItem1': 'Курсы английского для любых уровней',
     'about.boxItem2': 'Подготовка к IELTS, TOEFL и другим экзаменам',
@@ -67,7 +67,7 @@ const translations = {
     'hero.cardItem3': 'Support at every stage — from preparation to admission',
     'about.eyebrow': 'About us',
     'about.title': 'InterAction — a place where knowledge becomes your next step',
-    'about.text': 'We combine English language learning with support for international university applications. Our goal is to give students not only knowledge, but confidence for real achievements.',
+    'about.text': 'We combine English language learning with support for international university applications. Our goal is to give students not only knowledge, but confidence for real achievement[...]',
     'about.boxTitle': 'What we offer',
     'about.boxItem1': 'English courses for all levels',
     'about.boxItem2': 'Preparation for IELTS, TOEFL and other exams',
@@ -161,6 +161,67 @@ if (form) {
       submitButton.textContent = note;
     }
   });
+}
+
+// --- Added calculateIELTS() to restore calculator functionality ---
+function calculateIELTS() {
+  const parse = (id) => parseFloat(document.getElementById(id)?.value || 0);
+  const scoreL = parse('scoreL');
+  const scoreR = parse('scoreR');
+  const scoreW = parse('scoreW');
+  const scoreS = parse('scoreS');
+  const target = parse('scoreTarget');
+
+  // Update shown slider values
+  const setText = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = Number(val).toFixed(1);
+  };
+  setText('valL', scoreL);
+  setText('valR', scoreR);
+  setText('valW', scoreW);
+  setText('valS', scoreS);
+  setText('valTarget', target);
+
+  // Compute overall (rounded to nearest 0.5)
+  let overall = (scoreL + scoreR + scoreW + scoreS) / 4;
+  overall = Math.round(overall * 2) / 2;
+  const overallEl = document.getElementById('resOverall');
+  if (overallEl) overallEl.textContent = overall.toFixed(1);
+
+  // Intensity multiplier from radio buttons (default 1.0)
+  const intensityEl = document.querySelector('input[name="intensity"]:checked');
+  const intensity = intensityEl ? parseFloat(intensityEl.value) : 1.0;
+
+  // Simple months model:
+  // base months per 0.5 band at regular intensity = 1.5
+  const perHalfMonths = 1.5;
+  let months = 0;
+  if (target > overall) {
+    const halves = Math.round((target - overall) / 0.5);
+    // higher intensity (smaller multiplier) reduces months because value is like 1.0 or 0.65
+    months = Math.ceil(halves * perHalfMonths * (1 / intensity));
+    if (months < 1) months = 1;
+  }
+
+  const monthsEl = document.getElementById('resMonths');
+  if (monthsEl) monthsEl.textContent = months > 0 ? `${months} месяцев` : '0 месяцев';
+
+  // Advice text
+  const adviceEl = document.getElementById('resAdvice');
+  if (adviceEl) {
+    let advice = '';
+    if (target <= overall) {
+      advice = 'Вы уже на уровне целевого балла — поддерживайте практику и готовьтесь к сдаче.';
+    } else if (months <= 2) {
+      advice = 'Короткая интенсивная подготовка подойдет. Рекомендуем дополнительные практические занятия.';
+    } else if (months <= 6) {
+      advice = 'Регулярная подготовка с наставником и самостоятельная практика дадут хороший результат.';
+    } else {
+      advice = 'Долгосрочная плановая подготовка: индивидуальная программа и регулярные проверки прогресса.';
+    }
+    adviceEl.textContent = advice;
+  }
 }
 
 const savedLang = localStorage.getItem('interaction-lang');
